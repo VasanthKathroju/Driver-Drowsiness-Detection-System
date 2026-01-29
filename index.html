@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Driver Drowsiness Monitor — Dashboard</title>
+<style>
+/* --- General Reset --- */
+* {box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif;}
+body {height:100vh; background: linear-gradient(135deg,#081029,#0f2b4c,#2b1341); display:flex; flex-direction:column; align-items:center; color:#fff; transition:background .4s, color .4s;}
+
+/* --- Theme variables --- */
+:root{
+  --bg-dark:#0f1724; --bg-light:#f4f7fb;
+  --card-dark:rgba(255,255,255,0.06); --card-light:#ffffff;
+  --accent:#2dd4bf; --accent-2:#60a5fa;
+  --danger:#ff6b6b; --muted:#94a3b8;
+  --glass:rgba(255,255,255,0.06); --glass-2:rgba(255,255,255,0.03);
+}
+[data-theme="light"]{--bg:var(--bg-light); --text:#0f1724; --card:var(--card-light); --card-opaque:rgba(15,23,36,0.05);}
+[data-theme="dark"]{--bg:var(--bg-dark); --text:#e6eef8; --card:var(--card-dark); --card-opaque:var(--glass);}
+
+/* --- Advanced Login Modal --- */
+#loginModal {position:fixed; inset:0; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.7); backdrop-filter:blur(5px); z-index:999;}
+.login-box {background:rgba(255,255,255,0.05); padding:40px; border-radius:16px; width:360px; max-width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.5); animation:fadeIn 0.5s ease;}
+@keyframes fadeIn {0%{opacity:0; transform:translateY(-20px);} 100%{opacity:1; transform:translateY(0);}}
+.login-box h2 {text-align:center; margin-bottom:24px; font-size:28px; color:#2dd4bf;}
+.input-group {position:relative; margin-bottom:20px;}
+.input-group input {width:100%; padding:14px; border-radius:10px; border:none; background:rgba(255,255,255,0.1); color:#fff; outline:none; transition:0.3s;}
+.input-group label {position:absolute; left:14px; top:50%; transform:translateY(-50%); pointer-events:none; color:#94a3b8; transition:0.3s;}
+.input-group input:focus + label, .input-group input:not(:placeholder-shown) + label {top:-10px; font-size:12px; color:#2dd4bf; background:rgba(0,0,0,0.1); padding:0 6px; border-radius:4px;}
+.show-pass {position:absolute; right:14px; top:50%; transform:translateY(-50%); cursor:pointer; color:#94a3b8; font-size:14px;}
+.btn-login {width:100%; padding:14px; background:linear-gradient(90deg,#10b981,#34d399); color:#042433; font-weight:700; border:none; border-radius:12px; cursor:pointer; transition:0.3s; box-shadow:0 6px 18px rgba(2,6,23,0.4);}
+.btn-login:hover {transform:translateY(-2px); box-shadow:0 8px 20px rgba(2,6,23,0.5);}
+.error-msg {color:#fb7185; font-size:13px; margin-bottom:12px; text-align:center; display:none;}
+
+/* --- Header and Dashboard --- */
+header{width:100%; max-width:1200px; display:flex; gap:16px; align-items:center; justify-content:space-between; margin-bottom:18px; display:none;}
+.brand{display:flex;gap:14px;align-items:center;}
+.logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow:0 6px 24px rgba(45,212,191,0.14); display:flex;align-items:center;justify-content:center;font-weight:700;color:#042433;}
+h1{font-size:1.25rem;margin:0;}
+.top-controls{display:flex;gap:10px;align-items:center;}
+button{border:0;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer; box-shadow:0 6px 18px rgba(2,6,23,0.4); transition:transform .14s ease, box-shadow .18s ease, opacity .14s;}
+button:active{transform:translateY(1px) scale(.995);}
+.btn-start{background:linear-gradient(90deg,#10b981,#34d399);color:#042433;}
+.btn-stop{background:linear-gradient(90deg,#f97316,#ef4444);color:white;}
+.btn-test{background:linear-gradient(90deg,#f59e0b,#f97316);color:#042433;}
+.btn-theme{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text);padding:8px 12px;border-radius:10px;}
+.btn-reset{background:linear-gradient(90deg,#8b5cf6,#a78bfa);color:white;}
+
+/* --- Grid and Cards --- */
+.grid{width:100%;max-width:1200px; display:grid; grid-template-columns: 1fr 360px; gap:18px; align-items:start; display:none;}
+.card{background:var(--card); border-radius:14px; padding:18px; box-shadow:0 10px 40px rgba(2,6,23,0.45); min-height:200px; overflow:hidden; border:1px solid rgba(255,255,255,0.03);}
+.video-wrap{display:flex;flex-direction:column;gap:12px;align-items:center;}
+#videoFeed{width:100%;border-radius:12px;max-height:520px;object-fit:cover;border:3px solid rgba(255,255,255,0.04); background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01)); transition:transform .25s ease, box-shadow .25s; box-shadow:0 12px 36px rgba(2,6,23,0.5); display:none;}
+#videoFeed.show{display:block; transform: translateY(0);}
+.status-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;margin-top:6px;}
+#statusBox{padding:10px 18px;border-radius:999px;font-weight:700;letter-spacing:.6px;box-shadow:0 8px 30px rgba(2,6,23,0.5);transition:transform .18s, box-shadow .18s;}
+.s-green{background:linear-gradient(90deg,#34d399,#10b981);color:#042433;}
+.s-yellow{background:linear-gradient(90deg,#fbbf24,#f59e0b);color:#042433;}
+.s-red{background:linear-gradient(90deg,#fb7185,#ef4444);color:white;animation:statusPulse 1.2s infinite;}
+.s-grey{background:linear-gradient(90deg,#94a3b8,#64748b);color:white;}
+@keyframes statusPulse{0%{transform:scale(1)}50%{transform:scale(1.04)}100%{transform:scale(1)}}
+.panel{display:flex;flex-direction:column;gap:12px;}
+.kpi{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:12px;background:var(--card-opaque);font-weight:700;}
+.kpi small{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:4px}
+.log{max-height:360px;overflow:auto;padding:8px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));}
+.log-item{padding:10px;border-radius:8px;margin-bottom:8px;background:rgba(0,0,0,0.06);display:flex;justify-content:space-between;align-items:center;}
+.log-item .type{font-weight:700}
+.small{font-size:13px;color:var(--muted)}
+.strip{display:flex;gap:14px;align-items:center;justify-content:center;margin-top:12px;}
+.clock,.session,.last-change{padding:8px 12px;border-radius:999px;background:var(--card-opaque);font-weight:700}
+
+/* --- Instructions --- */
+#instructions{max-width:1200px;margin:12px auto;padding:16px;background:var(--card);border-radius:14px;line-height:1.5; display:none;}
+@media (max-width:980px){.grid{grid-template-columns:1fr;max-width:980px} #videoFeed{max-height:420px}}
+@media (max-width:560px){header{padding:12px} h1{font-size:1rem} .logo{width:44px;height:44px}}
+</style>
+</head>
+<body data-theme="dark">
+
+<!-- LOGIN MODAL -->
+<div id="loginModal">
+  <div class="login-box">
+    <h2>Driver Monitor Login</h2>
+    <div class="error-msg" id="errorMsg">Invalid credentials</div>
+    <div class="input-group">
+      <input type="text" id="username" placeholder=" " />
+      <label>Username</label>
+    </div>
+    <div class="input-group">
+      <input type="password" id="password" placeholder=" " />
+      <label>Password</label>
+      <span class="show-pass" onclick="togglePassword()">👁️</span>
+    </div>
+    <button class="btn-login" onclick="login()">Login</button>
+  </div>
+</div>
+
+<!-- DASHBOARD HEADER -->
+<header>
+  <div class="brand">
+    <div class="logo">DM</div>
+    <div>
+      <h1>Driver Drowsiness Monitor</h1>
+      <div class="small">Real-time dashboard • Live alerts • Session telemetry</div>
+    </div>
+  </div>
+
+  <div class="top-controls">
+    <div class="strip">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="session" id="sessionTimer">00:00:00</div>
+      <div class="last-change" id="lastChange">Last: --:--:--</div>
+    </div>
+
+    <button class="btn-test" title="Play test beep" onclick="playTest()">🔊</button>
+    <button class="btn-theme" onclick="toggleTheme()">Theme</button>
+    <button class="btn-reset" title="Reset dashboard" onclick="resetDashboard()">Reset</button>
+  </div>
+</header>
+
+<!-- INSTRUCTIONS -->
+<div id="instructions">
+  <h3>Instructions:</h3>
+  <ul>
+    <li>Login with your credentials to access the dashboard.</li>
+    <li>Click "Start Feed" to begin live monitoring of the driver.</li>
+    <li>Monitor the blink and closed-eye events in real-time.</li>
+    <li>Status colors: <span class="s-green">Active</span>, <span class="s-yellow">Drowsy</span>, <span class="s-red">Sleeping</span>.</li>
+    <li>Use the "Test Sound" button to ensure alerts are audible.</li>
+    <li>Click "Reset" to clear the dashboard and restart session timers.</li>
+  </ul>
+</div>
+
+<!-- MAIN GRID -->
+<main class="grid">
+  <section class="card video-wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div style="font-weight:800">Live Camera</div>
+        <div class="small" id="cameraStatus">INACTIVE</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-start" onclick="startCamera()">Start</button>
+        <button class="btn-stop" onclick="stopCamera()">Stop</button>
+      </div>
+    </div>
+
+    <img id="videoFeed" src="" alt="Camera feed (start camera)" />
+
+    <div class="status-row">
+      <div id="statusBox" class="s-grey">INACTIVE</div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="card info">
+      <div class="kpi">
+        <div>
+          <div style="font-size:22px" id="blinkCount">0</div>
+          <small>Blinks</small>
+        </div>
+        <div>
+          <div style="font-size:22px" id="closedCount">0</div>
+          <small>Closed events</small>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:space-between;">
+        <button class="btn-test" onclick="playTest()">Test Sound</button>
+        <button class="btn-start" onclick="startCamera()">Start Feed</button>
+        <button class="btn-stop" onclick="stopCamera()">Stop Feed</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:800">Event Log</div>
+        <div class="small">live</div>
+      </div>
+      <div class="log" id="eventLog"></div>
+    </div>
+
+    <div class="card small">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:800">Status</div>
+          <div class="small">Latest monitoring status</div>
+        </div>
+        <div id="miniStatus" style="font-weight:800">INACTIVE</div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<audio id="alertAudio" src="beep-warning-1120.mp3" preload="auto"></audio>
+
+<script>
+/* --- Credentials --- */
+const DEMO_USER="admin";
+const DEMO_PASS="password";
+
+/* --- Login --- */
+function togglePassword(){ const p=document.getElementById('password'); p.type=p.type==='password'?'text':'password'; }
+function login(){
+  const user=document.getElementById('username').value.trim();
+  const pass=document.getElementById('password').value.trim();
+  const err=document.getElementById('errorMsg');
+  if(user===DEMO_USER && pass===DEMO_PASS){
+    document.getElementById('loginModal').style.display='none';
+    document.querySelector('header').style.display='flex';
+    document.querySelector('.grid').style.display='grid';
+    document.getElementById('instructions').style.display='block';
+    err.style.display='none';
+    pushEvent('User logged in','info');
+  } else { err.style.display='block'; }
+}
+
+/* --- Dashboard JS --- */
+const clockEl=document.getElementById('clock');
+const sessionTimerEl=document.getElementById('sessionTimer');
+const lastChangeEl=document.getElementById('lastChange');
+const eventLogEl=document.getElementById('eventLog');
+const statusBox=document.getElementById('statusBox');
+const miniStatus=document.getElementById('miniStatus');
+const cameraStatus=document.getElementById('cameraStatus');
+const blinkCountEl=document.getElementById('blinkCount');
+const closedCountEl=document.getElementById('closedCount');
+const videoFeed=document.getElementById('videoFeed');
+const alertAudio=document.getElementById('alertAudio');
+
+let sessionStart=null;
+let lastReceivedStatus=null;
+let cameraActive=false;
+
+function updateClock(){ clockEl.textContent=new Date().toLocaleTimeString(); }
+setInterval(updateClock,1000); updateClock();
+
+function tickSession(){
+  if(!sessionStart){ sessionTimerEl.textContent="00:00:00"; return; }
+  const diff=Date.now()-sessionStart;
+  const total=Math.floor(diff/1000);
+  const hrs=String(Math.floor(total/3600)).padStart(2,'0');
+  const mins=String(Math.floor((total%3600)/60)).padStart(2,'0');
+  const secs=String(total%60).padStart(2,'0');
+  sessionTimerEl.textContent=`${hrs}:${mins}:${secs}`;
+}
+setInterval(tickSession,1000);
+
+function toggleTheme(){ const b=document.body; b.setAttribute('data-theme',b.getAttribute('data-theme')==='dark'?'light':'dark'); }
+function playTest(){ alertAudio.play().catch(()=>{}); }
+function startCamera(){ if(!cameraActive){ videoFeed.src='/video_feed'; videoFeed.classList.add('show'); cameraActive=true; sessionStart=Date.now(); cameraStatus.textContent='ACTIVE'; pushEvent('Camera started','info'); } }
+function stopCamera(){ if(cameraActive){ videoFeed.src=''; videoFeed.classList.remove('show'); cameraActive=false; cameraStatus.textContent='INACTIVE'; pushEvent('Camera stopped','info'); } }
+
+function pushEvent(text,type='status'){
+  const item=document.createElement('div'); const time=new Date();
+  item.className='log-item';
+  item.innerHTML=`<div><div class="type">${text}</div><div class="small">${time.toLocaleString()}</div></div><div class="small">${type}</div>`;
+  eventLogEl.prepend(item); if(eventLogEl.children.length>120) eventLogEl.removeChild(eventLogEl.lastChild);
+  lastChangeEl.textContent=time.toLocaleTimeString();
+}
+
+function resetDashboard(){
+  blinkCountEl.textContent='0';
+  closedCountEl.textContent='0';
+  sessionStart=Date.now();
+  eventLogEl.innerHTML='';
+  statusBox.textContent='INACTIVE'; statusBox.className='s-grey';
+  miniStatus.textContent='INACTIVE';
+  pushEvent('Dashboard reset','info');
+}
+
+/* --- Polling dummy status --- */
+setInterval(()=>{
+  if(cameraActive){
+    const rand=Math.random();
+    let status='ACTIVE';
+    if(rand>0.7) status='DROWSY';
+    if(rand>0.9) status='SLEEP';
+    blinkCountEl.textContent=Math.floor(Math.random()*10);
+    closedCountEl.textContent=Math.floor(Math.random()*5);
+    miniStatus.textContent=status;
+    statusBox.textContent=status;
+    statusBox.className=status==='SLEEP'?'s-red':status==='DROWSY'?'s-yellow':'s-green';
+    if(status==='DROWSY'||status==='SLEEP') playTest();
+    pushEvent(`Status: ${status}`,status==='SLEEP'?'alert':status==='DROWSY'?'warning':'status');
+  }
+},5000);
+</script>
+
+</body>
+</html>

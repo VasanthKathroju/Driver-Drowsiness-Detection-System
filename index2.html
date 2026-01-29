@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Driver Drowsiness Monitor</title>
+<style>
+body{background:#0f1724;color:white;font-family:Arial;text-align:center}
+img{width:75%;border-radius:12px;border:4px solid #2dd4bf;margin-top:20px}
+.status{margin-top:15px;font-size:22px;font-weight:bold;padding:10px 20px;border-radius:30px;display:inline-block}
+.green{background:#10b981;color:#042433}
+.yellow{background:#f59e0b;color:#042433}
+.red{background:#ef4444}
+</style>
+</head>
+
+<body>
+
+<h1>🚗 Driver Drowsiness Monitoring System</h1>
+
+<button onclick="startCamera()">Start Camera</button>
+<button onclick="stopCamera()">Stop Camera</button>
+
+<br><br>
+<img id="videoFeed">
+
+<div id="statusBox" class="status">INACTIVE</div>
+
+<p>Blinks: <span id="blinkCount">0</span></p>
+<p>Closed Eyes: <span id="closedCount">0</span></p>
+
+<audio id="alertAudio" src="/static/beep-warning-6387.mp3"></audio>
+
+<script>
+const video = document.getElementById("videoFeed");
+const statusBox = document.getElementById("statusBox");
+const blinkEl = document.getElementById("blinkCount");
+const closedEl = document.getElementById("closedCount");
+const alertAudio = document.getElementById("alertAudio");
+
+let cameraOn = false;
+
+function startCamera(){
+  if(!cameraOn){
+    video.src = "/video_feed";
+    cameraOn = true;
+  }
+}
+
+function stopCamera(){
+  video.src = "";
+  cameraOn = false;
+  statusBox.textContent = "INACTIVE";
+  statusBox.className = "status";
+}
+
+setInterval(async ()=>{
+  if(!cameraOn) return;
+
+  const res = await fetch("/status");
+  const data = await res.json();
+
+  blinkEl.textContent = data.blinks;
+  closedEl.textContent = data.closed;
+
+  statusBox.textContent = data.status;
+  statusBox.className = "status " +
+    (data.status==="ACTIVE"?"green":
+     data.status==="DROWSY"?"yellow":"red");
+
+  if(data.status !== "ACTIVE"){
+    alertAudio.play().catch(()=>{});
+  }
+},1000);
+</script>
+
+</body>
+</html>
